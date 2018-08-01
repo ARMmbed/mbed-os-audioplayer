@@ -72,7 +72,7 @@ static int read_chunk_info(File *file, riff_chunk_t* chunk_info) {
         return length;
     }
     if (length != sizeof(riff_chunk_t)) {
-        debug_printf("read_chunk_info error: only able to read %i bytes\n", length);
+        debug_printf("read_chunk_info error: only able to read %i bytes\r\n", length);
         return 1;
     }
 
@@ -81,11 +81,13 @@ static int read_chunk_info(File *file, riff_chunk_t* chunk_info) {
 
 /**
  * read chunks until the specified one is found, return 0 on success
+ * 
+ * this function must be called when file position is at the start of a chunk
  *
- * @param file          File to read from
- * @param chunk_info    Chunk structure to fill
- * @param name          Name of the chunk
- * @return              0 on success, otherwise non-zero
+ * @param file             File to read from
+ * @param chunk_info       Chunk structure to fill
+ * @param name             Name of the chunk
+ * @return                 0 on success, otherwise non-zero
  */
 static int read_chunk_info_skip(File *file, riff_chunk_t* chunk_info, const char *name) {
     riff_chunk_t current_chunk;
@@ -100,10 +102,10 @@ static int read_chunk_info_skip(File *file, riff_chunk_t* chunk_info, const char
     //read initial chunk
     result = read_chunk_info(file,&current_chunk);
     if (result != 0) {
-        debug_printf("read_chunk_info_skip: read_chunk_info problem\n");
+        debug_printf("read_chunk_info_skip: read_chunk_info problem\r\n");
         return -1;
     }
-
+    
     //search until chunk is found
     while (memcmp(&(current_chunk.identifier),name,4) != 0) {
 
@@ -115,7 +117,7 @@ static int read_chunk_info_skip(File *file, riff_chunk_t* chunk_info, const char
 
         result = read_chunk_info(file,&current_chunk);
         if (result != 0) {
-            debug_printf("read_chunk_info_skip: read_chunk_info problem\n");
+            debug_printf("read_chunk_info_skip: read_chunk_info problem\r\n");
             return -1;
         }
     }
@@ -132,33 +134,34 @@ WaveAudioStream::WaveAudioStream(File *file)
     riff_riff_t file_header;
     int length = file->read(&file_header, sizeof(file_header));
     if (length < 0) {
-        debug_printf("Error reading from file\n");
+        debug_printf("Error reading from file\r\n");
         return;
     }
     if (length != sizeof(file_header)) {
-        debug_printf("File not large enough\n");
+        debug_printf("File not large enough\r\n");
         return;
     }
     if (memcmp(&(file_header.identifier), "RIFF", 4) != 0) {
-        debug_printf("Incorrect header\n");
+        debug_printf("Incorrect header\r\n");
         return;
     }
     if (memcmp(&(file_header.format), "WAVE", 4) != 0) {
-        debug_printf("File is not a wave\n");
+        debug_printf("File is not a wave\r\n");
         return;
     }
-    debug_printf("RIFF data size = %lu\n",file_header.size);
+    debug_printf("RIFF data size = %lu\r\n",file_header.size);
 
 
     // Read chunks until format chunk is found
     riff_chunk_t current_chunk;
     int result = read_chunk_info_skip(file, &current_chunk, "fmt ");
     if (result != 0) {
-        debug_printf("Problem reading \"fmt \" chunk\n");
+        debug_printf("Problem reading \"fmt \" chunk\r\n");
         return;
     }
-    if (current_chunk.size != 16) {
-        debug_printf("\"fmt \" chunk has wrong size\n");
+    
+    if (current_chunk.size < sizeof(wave_format_t)) {
+        debug_printf("\"fmt \" chunk has wrong size\r\n");
         return;
     }
 
@@ -166,32 +169,40 @@ WaveAudioStream::WaveAudioStream(File *file)
     wave_format_t format;
     length = file->read(&format, sizeof(format));
     if (length < 0) {
-        debug_printf("Error reading from file\n");
+        debug_printf("Error reading from file\r\n");
         return;
     }
     if (length != sizeof(format)) {
-        debug_printf("Error reading format\n");
+        debug_printf("Error reading format\r\n");
         return;
     }
-    if (format.audio_format != 1) {
-        debug_printf("File is not PCM type\n");
+    if (format.audio_format == 1) {
+        debug_printf("File is PCM type\r\n");
+    }
+    else if (format.audio_format == 0xFFFE){
+        debug_printf("File is extensible type\r\n");
+    }
+    else{
+        debug_printf("File is not PCM or Extensible type\r\n");
         return;
     }
-
+    // Seek past the rest of the fmt chunk to the next chunk header
+    file->seek(current_chunk.size - length, SEEK_CUR);
+    
     // Print out file info
-    debug_printf("Bits Per Sample = %i\n", (int)format.bits_per_sample);
-    debug_printf("Block Align = %i\n", (int)format.block_align);
-    debug_printf("Byte Rate = %i\n", (int)format.byte_rate);
-    debug_printf("Number of Channels = %i\n", (int)format.num_channels);
-    debug_printf("Sample Rate = %i\n", (int)format.sample_rate);
+    debug_printf("Bits Per Sample = %i\r\n", (int)format.bits_per_sample);
+    debug_printf("Block Align = %i\r\n", (int)format.block_align);
+    debug_printf("Byte Rate = %i\r\n", (int)format.byte_rate);
+    debug_printf("Number of Channels = %i\r\n", (int)format.num_channels);
+    debug_printf("Sample Rate = %i\r\n", (int)format.sample_rate);
 
     // Read the data chunk
     result = read_chunk_info_skip(file, &current_chunk, "data");
     if (result != 0) {
-        debug_printf("Problem reading \"data\" chunk\n");
+        debug_printf("Problem reading \"data\" chunk\r\n");
         return;
     }
-    debug_printf("Data chunk size = %lu\n",current_chunk.size);
+    debug_printf("Data chunk size (subchunk2size)= %lu\r\n",current_chunk.size);
 
     _channels = format.num_channels;
     _bytes_per_sample = (format.bits_per_sample + 7) / 8;

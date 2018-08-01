@@ -27,21 +27,21 @@ public:
      *
      * @return          Number of channels in this stream
      */
-    virtual uint32_t get_channels();
+    virtual uint32_t get_channels() = 0;
 
     /**
      * Get the size of each sample in bytes
      *
      * @return          Size of each sample in bytes
      */
-    virtual uint32_t get_bytes_per_sample();
+    virtual uint32_t get_bytes_per_sample() = 0;
 
     /**
      * Get the sample rate
      *
      * @return          Sample rate in Hz
      */
-    virtual uint32_t get_sample_rate();
+    virtual uint32_t get_sample_rate() = 0;
 
     /**
      * Read from the audio stream
@@ -50,14 +50,14 @@ public:
      * @param size      Size of audio data to read
      * @return          Size read or -1 if no more data
      */
-    virtual int read(uint8_t *data, uint32_t size);
+    virtual int read(uint8_t *data, uint32_t size) = 0;
 
     /**
      * Close this stream
      *
      * Release the resources associated with this stream
      */
-    virtual void close();
+    virtual void close() = 0;
 
     virtual ~AudioStream() {}
 };

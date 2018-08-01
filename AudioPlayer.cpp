@@ -99,15 +99,15 @@ public:
 
     }
 
-    uint32_t get_channels() {
+    virtual uint32_t get_channels() {
         return 1;
     }
 
-    uint32_t get_bytes_per_sample() {
+    virtual uint32_t get_bytes_per_sample() {
         return 1;
     }
 
-    uint32_t get_sample_rate() {
+    virtual uint32_t get_sample_rate() {
         return _stream->get_sample_rate();
     }
 
@@ -147,14 +147,14 @@ public:
      *
      * Release the resources associated with this stream
      */
-    void close() {
+    virtual void close() {
         if (_stream != NULL) {
             _stream->close();
             _stream = NULL;
         }
     }
 
-    ~UnifiedAudioStream() {
+    virtual ~UnifiedAudioStream() {
         delete[] _buf;
     }
 
